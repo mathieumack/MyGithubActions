@@ -12,7 +12,6 @@ inputs:
   workingDirectory:
     description: 'Working directory that contains the source folder'
     default: 'src'
-outputs:
 runs:
   using: "composite"
   steps:
