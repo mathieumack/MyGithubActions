@@ -29,7 +29,7 @@ runs:
   - name: Build and analyze
     shell: pwsh
     run: |
-      dotnet build --configuration Release --no-restore -p:FileVersion=${{ inputs.version }} /p:Version=${{ inputs.version }}${{ inputs.versionPrefix }}
+      dotnet build --configuration Release --no-restore -p:FileVersion=${{ inputs.version }} /p:Version=${{ inputs.version }}${{ inputs.prefix }}
     working-directory: ${{ inputs.workingDirectory }}
   #- name: Launch unit tests
   #  run: dotnet test --configuration Release --no-build --verbosity normal /p:CollectCoverage=true  /p:CoverletOutputFormat=opencover --collect:"Code Coverage" /p:CoverletOutput="../sonarqubecoverage"
