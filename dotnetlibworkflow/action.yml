@@ -1,0 +1,87 @@
+name: 'Nuget package'
+description: 'Build and Deploy a .net library on nuget'
+inputs:
+  nugetPackageIdentifier:  # id of input
+    description: 'Who to greet'
+    required: true
+    default: 'World'
+  nugetApiKey:  # id of input
+    description: 'Who to greet'
+    required: true
+    secrets: true
+    default: 'World'
+  sonarOrganizationCode:  # id of input
+    description: 'Who to greet'
+    required: true
+    secrets: true
+    default: 'World'
+  sonarProjectCode:  # id of input
+    description: 'Who to greet'
+    required: true
+    secrets: true
+    default: 'World'
+  sonarToken:  # id of input
+    description: 'Who to greet'
+    required: true
+    secrets: true
+    default: 'World'
+  publishToNuget:  # id of input
+    description: 'Who to greet'
+    required: true
+    default: 'World'
+  githubToken:  # id of input
+    description: 'Who to greet'
+    required: true
+    default: 'World'
+outputs:
+  BUILD_VERSION:
+    description: 'The time we greeted you'
+  BUILD_VERSION_PREFIX:
+    description: 'The time we greeted you'
+runs:
+  using: "composite"
+  steps:
+  # Show informations :
+  - uses: actions/checkout@v2
+  - name: Show github context github ref
+    shell: bash
+    run: echo Github Ref ${{ github.ref }}
+  - name: Show github context github head ref
+    shell: bash
+    run: echo Github Head Ref ${{ github.head_ref }}
+  - name: Show github context github run number
+    shell: bash
+    run: echo Github Run number ${{ github.run_number }}
+  # Generate package version :
+  - id: nugetVersion
+    uses: ./nugetversion
+    with:
+      nugetPackageIdentifier: '${{ inputs.nugetPackageIdentifier }}'
+  # Build solution (and package nuget) 
+  - name: Begin Sonar scan
+    shell: pwsh
+    run: |
+      dotnet tool install --global dotnet-sonarscanner
+      dotnet sonarscanner begin /k:${{ inputs.sonarOrganizationCode }}_${{ inputs.sonarProjectCode }} /o:${{ inputs.sonarOrganizationCode }} /d:sonar.login=${{ inputs.sonarToken }} /d:sonar.host.url=https://sonarcloud.io /d:sonar.cs.opencover.reportsPaths="sonarqubecoverage.opencover.xml"
+    working-directory: src
+  - id: buildAndTest
+    uses: ./buildandtestdotnet
+    with:
+      version: '${{ steps.nugetVersion.outputs.buildVersion }}'
+      versionPrefix: '${{ steps.nugetVersion.outputs.buildVersionPrefix }}'
+  - name: End Sonar scan
+    shell: pwsh
+    run: dotnet sonarscanner end /d:sonar.login=${{ inputs.sonarToken }}
+    env:
+      GITHUB_TOKEN: ${{ inputs.githubToken }}
+    working-directory: src
+  - uses: actions/upload-artifact@v3
+    with:
+      name: nuget-artifact
+      path: src/**/*.nupkg
+  # Publish a new version only for new features :
+  - name: Push Package to NuGet.org
+    shell: pwsh
+    if: startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || inputs.publishToNuget
+    run: dotnet nuget push **.nupkg -k ${{ inputs.nugetApiKey }} -s https://api.nuget.org/v3/index.json
+    working-directory: src

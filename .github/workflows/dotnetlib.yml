@@ -1,0 +1,78 @@
+name: .NET
+
+on:
+  workflow_call:
+    inputs:
+        publishToNuget:
+          description: 'Publish to nuget'
+          required: true
+          default: true
+          type: boolean
+        sourceDirectoryPath:
+          description: 'Path for all source code'
+          default: 'src'
+          type: string
+    secrets:
+        NUGETPACKAGEIDENTIFIER:
+            required: true
+        SONAR_ORGANIZATION_CODE:
+            required: true
+        SONAR_PROJECT_CODE:
+            required: true
+        SONAR_TOKEN:
+            required: true
+        NUGETAPIKEY:
+            required: true
+
+jobs:
+  build:
+    name: "CI : Build, Test and publish"
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout workflows repo # required so we can reference the actions locally
+      uses: actions/checkout@v2
+    # Show informations :
+    - name: Show github context github ref
+      run: echo ${{ github.ref }}
+    - name: Show github context github head_ref
+      run: echo ${{ github.head_ref }}
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: |
+          6.0.x
+          7.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+      working-directory: ${{ inputs.sourceDirectoryPath }}
+    - id: generateVersionStep
+      uses: mathieumack/MyGithubActions/actions/nugetversion@main
+      with:
+        nugetPackageIdentifier: '${{ secrets.NUGETPACKAGEIDENTIFIER }}'
+    # Build solution (and package nuget) 
+    - name: Begin Sonar scan
+      run: |
+        dotnet tool install --global dotnet-sonarscanner
+        dotnet sonarscanner begin /k:${{ secrets.SONAR_ORGANIZATION_CODE }}_${{ secrets.SONAR_PROJECT_CODE }} /o:${{ secrets.SONAR_ORGANIZATION_CODE }} /d:sonar.login=${{ secrets.SONAR_TOKEN }} /d:sonar.host.url=https://sonarcloud.io /d:sonar.cs.opencover.reportsPaths="sonarqubecoverage.opencover.xml"
+      working-directory: ${{ inputs.sourceDirectoryPath }}
+    - id: buildandanalyze
+      uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@main
+      with:
+        version: '${{ steps.generateVersionStep.outputs.buildVersion }}'
+        prefix: '${{ steps.generateVersionStep.outputs.buildVersionPrefix }}'
+        workingDirectory: '${{ inputs.sourceDirectoryPath }}'
+    - name: End Sonar scan
+      run: dotnet sonarscanner end /d:sonar.login=${{ secrets.SONAR_TOKEN }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      working-directory: ${{ inputs.sourceDirectoryPath }}
+    - uses: actions/upload-artifact@v3
+      with:
+        name: nuget-artifact
+        path: src/**/*.nupkg
+    # Publish a new version only for new features :
+    - name: Push Package to NuGet.org
+      if: startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || inputs.publishToNuget
+      run: dotnet nuget push **.nupkg -k ${{ secrets.NUGETAPIKEY }} -s https://api.nuget.org/v3/index.json
+      working-directory: ${{ inputs.sourceDirectoryPath }}
