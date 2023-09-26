@@ -30,6 +30,7 @@ runs:
   - name: Setup NuGet
     uses: NuGet/setup-nuget@v1.0.2
   - name: Restore Packages
+    shell: pwsh
     run: nuget restore ${{ inputs.workingDirectory }}${{ inputs.solutionFileName }}
   - name: Build and analyze
     shell: pwsh
