@@ -1,0 +1,41 @@
+name: 'Nuget package'
+description: 'Build and Deploy a .net library on nuget'
+inputs:
+  version:
+    description: 'Build version. Ex : 1.1.0'
+    required: true
+    default: '0.0.0'
+  prefix:
+    description: 'Build version prefix. Ex : -preview-31'
+    required: true
+    default: ''
+  workingDirectory:
+    description: 'Working directory that contains the source folder'
+    default: 'src'
+  solutionFileName:
+    description: 'Name of the solution file. Sample.sln'
+    default: '*.sln'
+    type: string
+runs:
+  using: "composite"
+  steps:
+  # Show informations :  
+  - name: Setup .NET
+    uses: actions/setup-dotnet@v1
+    with:
+      dotnet-version: |
+        7.0.x
+  - name: Setup MSBuild
+    uses: microsoft/setup-msbuild@v1
+  - name: Setup NuGet
+    uses: NuGet/setup-nuget@v1.0.2
+  - name: Restore Packages
+    run: nuget restore ${{ inputs.workingDirectory }}${{ inputs.solutionFileName }}
+  - name: Build and analyze
+    shell: pwsh
+    run: |
+      dotnet build --configuration Release -p:FileVersion=${{ inputs.version }} /p:Version=${{ inputs.version }}${{ inputs.prefix }}
+    working-directory: ${{ inputs.workingDirectory }}
+  #- name: Launch unit tests
+  #  run: dotnet test --configuration Release --no-build --verbosity normal /p:CollectCoverage=true  /p:CoverletOutputFormat=opencover --collect:"Code Coverage" /p:CoverletOutput="../sonarqubecoverage"
+  #  working-directory: src
