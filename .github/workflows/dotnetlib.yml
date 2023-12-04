@@ -51,10 +51,17 @@ jobs:
       run: echo ${{ github.ref }}
     - name: Show github context github head_ref
       run: echo ${{ github.head_ref }}
+    # Install java last version for Sonar
+    - uses: actions/setup-java@v4
+      with:
+        distribution: 'oracle'
+        java-version: '17'
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: ${{ inputs.dotnetVersions }}
+    - name: Show github context github head_ref
+      run: echo ${{ github.head_ref }}
     - name: Restore dependencies
       run: dotnet restore
       working-directory: ${{ inputs.sourceDirectoryPath }}
