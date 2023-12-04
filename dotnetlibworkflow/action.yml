@@ -58,23 +58,16 @@ runs:
     with:
       nugetPackageIdentifier: '${{ inputs.nugetPackageIdentifier }}'
   # Build solution (and package nuget) 
-  - name: Begin Sonar scan
-    shell: pwsh
-    run: |
-      dotnet tool install --global dotnet-sonarscanner
-      dotnet sonarscanner begin /k:${{ inputs.sonarOrganizationCode }}_${{ inputs.sonarProjectCode }} /o:${{ inputs.sonarOrganizationCode }} /d:sonar.login=${{ inputs.sonarToken }} /d:sonar.host.url=https://sonarcloud.io /d:sonar.cs.opencover.reportsPaths="sonarqubecoverage.opencover.xml"
-    working-directory: src
   - id: buildAndTest
     uses: ./buildandtestdotnet
     with:
       version: '${{ steps.nugetVersion.outputs.buildVersion }}'
       versionPrefix: '${{ steps.nugetVersion.outputs.buildVersionPrefix }}'
-  - name: End Sonar scan
-    shell: pwsh
-    run: dotnet sonarscanner end /d:sonar.login=${{ inputs.sonarToken }}
+  - name: SonarCloud Scan
+    uses: SonarSource/sonarcloud-github-action@master
     env:
-      GITHUB_TOKEN: ${{ inputs.githubToken }}
-    working-directory: src
+      GITHUB_TOKEN: ${{ inputs.githubToken }}  
+      SONAR_TOKEN: ${{ inputs.sonarToken }}
   - uses: actions/upload-artifact@v3
     with:
       name: nuget-artifact
