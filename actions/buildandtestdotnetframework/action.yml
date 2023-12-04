@@ -25,6 +25,7 @@ runs:
     with:
       dotnet-version: |
         7.0.x
+        8.0.x
   - name: Setup MSBuild
     uses: microsoft/setup-msbuild@v1
   - name: Setup NuGet
