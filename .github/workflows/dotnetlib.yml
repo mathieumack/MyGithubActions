@@ -29,12 +29,12 @@ on:
     secrets:
         NUGETPACKAGEIDENTIFIER:
             required: true
-    #    SONAR_ORGANIZATION_CODE:
-    #        required: true
-    #    SONAR_PROJECT_CODE:
-    #        required: true
-    #    SONAR_TOKEN:
-    #        required: true
+        SONAR_ORGANIZATION_CODE:
+            required: true
+        SONAR_PROJECT_CODE:
+            required: true
+        SONAR_TOKEN:
+            required: true
         NUGETAPIKEY:
             required: true
 
