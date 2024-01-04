@@ -68,7 +68,7 @@ jobs:
       working-directory: ${{ inputs.sourceDirectoryPath }}
     - name: Generate build version
       id: generate-version
-      uses: mathieumack/MyGithubActions/actions/nugetversion@feature/v2
+      uses: mathieumack/MyGithubActions/actions/nugetversion@feature/v2 
       with:
         nugetPackageIdentifier: '${{ secrets.NUGETPACKAGEIDENTIFIER }}'
     # Build solution (and package nuget) 
@@ -78,11 +78,12 @@ jobs:
         dotnet tool install --global dotnet-project-licenses
         dotnet sonarscanner begin /k:${{ secrets.SONAR_ORGANIZATION_CODE }}_${{ secrets.SONAR_PROJECT_CODE }} /o:${{ secrets.SONAR_ORGANIZATION_CODE }} /d:sonar.login=${{ secrets.SONAR_TOKEN }} /d:sonar.host.url=https://sonarcloud.io /d:sonar.cs.opencover.reportsPaths="sonarqubecoverage.opencover.xml"
       working-directory: ${{ inputs.sourceDirectoryPath }}
-    - id: buildandanalyze
-      uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@feature/v2
+    - name: Build and test dotnet projects
+      id: buildandanalyze
+      uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@feature/v2 
       with:
-        version: '${{ steps.generate-version.outputs.build-version }}'
-        prefix: '${{ steps.generate-version.outputs.build-version-prefix }}'
+        version: '${{ steps.generate-version.outputs.buildversion }}'
+        prefix: '${{ steps.generate-version.outputs.buildversionprefix }}'
         workingDirectory: '${{ inputs.sourceDirectoryPath }}'
     - name: End sonar and other tools
       run: |
