@@ -67,7 +67,7 @@ jobs:
       run: dotnet restore
       working-directory: ${{ inputs.sourceDirectoryPath }}
     - id: generateVersionStep
-      uses: mathieumack/MyGithubActions/actions/nugetversion@main
+      uses: mathieumack/MyGithubActions/actions/nugetversion@feature/v2
       with:
         nugetPackageIdentifier: '${{ secrets.NUGETPACKAGEIDENTIFIER }}'
     # Build solution (and package nuget) 
@@ -78,7 +78,7 @@ jobs:
         dotnet sonarscanner begin /k:${{ secrets.SONAR_ORGANIZATION_CODE }}_${{ secrets.SONAR_PROJECT_CODE }} /o:${{ secrets.SONAR_ORGANIZATION_CODE }} /d:sonar.login=${{ secrets.SONAR_TOKEN }} /d:sonar.host.url=https://sonarcloud.io /d:sonar.cs.opencover.reportsPaths="sonarqubecoverage.opencover.xml"
       working-directory: ${{ inputs.sourceDirectoryPath }}
     - id: buildandanalyze
-      uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@main
+      uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@feature/v2
       with:
         version: '${{ steps.generateVersionStep.outputs.buildVersion }}'
         prefix: '${{ steps.generateVersionStep.outputs.buildVersionPrefix }}'
