@@ -45,7 +45,7 @@ runs:
       echo "buildVersionPrefix=$versionPrefix" >> $GITHUB_OUTPUT
   - name: Show build version
     shell: pwsh
-    run: echo ${{ steps.generateVersionStep.outputs.buildVersion }}
+    run: echo "Build version : ${{ steps.generateVersionStep.outputs.buildVersion }}"
   - name: Show build version prefix
     shell: pwsh
-    run: echo ${{ steps.generateVersionPrefixStep.outputs.buildVersionPrefix }}
+    run: echo "Build version prefix: ${{ steps.generateVersionPrefixStep.outputs.buildVersionPrefix }}"
