@@ -6,12 +6,12 @@ inputs:
     required: true
     default: 'World'
 outputs:
-  buildVersion:
+  build-version:
     description: 'Generated build version'
-    value: ${{ steps.generateVersionStep.outputs.buildVersion }}
-  buildVersionPrefix:
+    value: ${{ steps.generate-version.outputs.build-version }}
+  build-version-prefix:
     description: 'Generated build version prefix'
-    value: ${{ steps.generateVersionPrefixStep.outputs.buildVersionPrefix }}
+    value: ${{ steps.generate-version-prefix.outputs.build-version-prefix }}
 runs:
   using: "composite"
   steps:
@@ -22,15 +22,15 @@ runs:
         7.0.x
         8.0.x
   - name: Generate package version
-    id: generateVersionStep
+    id: generate-version
     shell: pwsh
     run: |
       $version = .\scripts\generateVersion.ps1 -query ${{ inputs.nugetPackageIdentifier }}
-      echo "buildVersion=$(echo $version)" >> $GITHUB_OUTPUT
+      echo "build-version=$(echo $version)" >> $GITHUB_OUTPUT
       echo "Build version : $version"
     working-directory: ${{ github.action_path }}
   - name: Generate package version prefix
-    id: generateVersionPrefixStep
+    id: generate-version-prefix
     shell: pwsh
     run: |
       $versionPrefix = ""
@@ -43,5 +43,5 @@ runs:
         $formattedGitrunNumber = "{0:D3}" -f $gitrunNumber
         $versionPrefix = "-preview-" + $formattedGitrunNumber 
       }
-      echo "buildVersionPrefix=$(echo $versionPrefix)" >> $GITHUB_OUTPUT
+      echo "build-version-prefix=$(echo $versionPrefix)" >> $GITHUB_OUTPUT
       echo "Build version prefix: $versionPrefix"

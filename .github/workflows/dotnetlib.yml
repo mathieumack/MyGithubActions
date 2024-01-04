@@ -45,7 +45,7 @@ jobs:
 
     steps:
     - name: Checkout workflows repo # required so we can reference the actions locally
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     # Show informations :
     - name: Show github context github ref
       run: echo ${{ github.ref }}
@@ -58,7 +58,7 @@ jobs:
         java-version: 17
         distribution: 'zulu' # Alternative distribution options are available.
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ inputs.dotnetVersions }}
     - name: Show github context github head_ref
@@ -66,7 +66,8 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
       working-directory: ${{ inputs.sourceDirectoryPath }}
-    - id: generateVersionStep
+    - name: Generate build version
+      id: generate-version
       uses: mathieumack/MyGithubActions/actions/nugetversion@feature/v2
       with:
         nugetPackageIdentifier: '${{ secrets.NUGETPACKAGEIDENTIFIER }}'
@@ -80,8 +81,8 @@ jobs:
     - id: buildandanalyze
       uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@feature/v2
       with:
-        version: '${{ steps.generateVersionStep.outputs.buildVersion }}'
-        prefix: '${{ steps.generateVersionStep.outputs.buildVersionPrefix }}'
+        version: '${{ steps.generate-version.outputs.build-version }}'
+        prefix: '${{ steps.generate-version.outputs.build-version-prefix }}'
         workingDirectory: '${{ inputs.sourceDirectoryPath }}'
     - name: End sonar and other tools
       run: |
