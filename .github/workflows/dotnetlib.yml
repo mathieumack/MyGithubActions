@@ -68,7 +68,7 @@ jobs:
       working-directory: ${{ inputs.sourceDirectoryPath }}
     - name: Generate build version
       id: generate-version
-      uses: mathieumack/MyGithubActions/actions/nugetversion@feature/v2 
+      uses: mathieumack/MyGithubActions/actions/nugetversion@main
       with:
         nugetPackageIdentifier: '${{ secrets.NUGETPACKAGEIDENTIFIER }}'
     # Build solution (and package nuget) 
@@ -80,7 +80,7 @@ jobs:
       working-directory: ${{ inputs.sourceDirectoryPath }}
     - name: Build and test dotnet projects
       id: buildandanalyze
-      uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@feature/v2 
+      uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@main
       with:
         version: '${{ steps.generate-version.outputs.buildversion }}'
         prefix: '${{ steps.generate-version.outputs.buildversionprefix }}'
