@@ -35,6 +35,7 @@ runs:
     shell: pwsh
     run: |
       $versionPrefix = ""
+      echo "Current ref branch : ${{ github.ref }}"
       if('${{ github.ref }}' -eq 'refs/heads/main')
       { 
         $versionPrefix = "" 
