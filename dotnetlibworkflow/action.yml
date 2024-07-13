@@ -62,7 +62,7 @@ runs:
     uses: ./buildandtestdotnet
     with:
       version: '${{ steps.nugetVersion.outputs.buildVersion }}'
-      versionPrefix: '${{ steps.nugetVersion.outputs.buildVersionPrefix }}'
+      prefix: '${{ steps.nugetVersion.outputs.buildVersionPrefix }}'
   - name: SonarCloud Scan
     uses: SonarSource/sonarcloud-github-action@master
     env:
