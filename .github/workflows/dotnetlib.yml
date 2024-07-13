@@ -45,7 +45,7 @@ jobs:
 
     steps:
     - name: Checkout workflows repo # required so we can reference the actions locally
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     # Show informations :
     - name: Show github context github ref
       run: echo ${{ github.ref }}
@@ -58,7 +58,7 @@ jobs:
         java-version: 17
         distribution: 'zulu' # Alternative distribution options are available.
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ inputs.dotnetVersions }}
     - name: Show github context github head_ref
@@ -66,7 +66,8 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
       working-directory: ${{ inputs.sourceDirectoryPath }}
-    - id: generateVersionStep
+    - name: Generate build version
+      id: generate-version
       uses: mathieumack/MyGithubActions/actions/nugetversion@main
       with:
         nugetPackageIdentifier: '${{ secrets.NUGETPACKAGEIDENTIFIER }}'
@@ -77,11 +78,12 @@ jobs:
         dotnet tool install --global dotnet-project-licenses
         dotnet sonarscanner begin /k:${{ secrets.SONAR_ORGANIZATION_CODE }}_${{ secrets.SONAR_PROJECT_CODE }} /o:${{ secrets.SONAR_ORGANIZATION_CODE }} /d:sonar.login=${{ secrets.SONAR_TOKEN }} /d:sonar.host.url=https://sonarcloud.io /d:sonar.cs.opencover.reportsPaths="sonarqubecoverage.opencover.xml"
       working-directory: ${{ inputs.sourceDirectoryPath }}
-    - id: buildandanalyze
+    - name: Build and test dotnet projects
+      id: buildandanalyze
       uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@main
       with:
-        version: '${{ steps.generateVersionStep.outputs.buildVersion }}'
-        prefix: '${{ steps.generateVersionStep.outputs.buildVersionPrefix }}'
+        version: '${{ steps.generate-version.outputs.buildversion }}'
+        prefix: '${{ steps.generate-version.outputs.buildversionprefix }}'
         workingDirectory: '${{ inputs.sourceDirectoryPath }}'
     - name: End sonar and other tools
       run: |

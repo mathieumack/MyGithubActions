@@ -7,7 +7,6 @@ inputs:
     default: '0.0.0'
   prefix:
     description: 'Build version prefix. Ex : -preview-31'
-    required: true
     default: ''
   workingDirectory:
     description: 'Working directory that contains the source folder'
@@ -29,6 +28,7 @@ runs:
   - name: Build and analyze
     shell: pwsh
     run: |
+      echo "Build version : ${{ inputs.version }}${{ inputs.prefix }}"
       dotnet build --configuration Release --no-restore -p:FileVersion=${{ inputs.version }} /p:Version=${{ inputs.version }}${{ inputs.prefix }}
     working-directory: ${{ inputs.workingDirectory }}
   #- name: Launch unit tests
