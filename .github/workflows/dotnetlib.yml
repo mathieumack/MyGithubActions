@@ -20,7 +20,7 @@ on:
           description: 'Image target version (latest, 20.04, ...)'
           default: 'latest'
           type: string
-        dotnetVersions:
+        dotnet-version:
           description: 'Dotnet versions.'
           default: |
             7.0.x
@@ -57,6 +57,13 @@ jobs:
       with:
         java-version: 17
         distribution: 'zulu' # Alternative distribution options are available.
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+    - name: Restore dependencies
+      shell: pwsh
+      run: dotnet restore
     - name: Show github context github head_ref
       run: echo ${{ github.head_ref }}
     - name: Generate build version
