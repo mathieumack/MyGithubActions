@@ -82,6 +82,7 @@ jobs:
       id: buildandanalyze
       uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@main
       with:
+        dotnet-version: ${{ inputs.dotnetVersions }}
         version: '${{ steps.generate-version.outputs.buildversion }}'
         prefix: '${{ steps.generate-version.outputs.buildversionprefix }}'
         workingDirectory: '${{ inputs.sourceDirectoryPath }}'

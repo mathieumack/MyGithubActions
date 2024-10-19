@@ -11,10 +11,20 @@ inputs:
   workingDirectory:
     description: 'Working directory that contains the source folder'
     default: 'src'
+  dotnetVersions:
+    description: 'Dotnet versions.'
+    default: |
+      7.0.x
+      8.0.x
+    type: string
 runs:
   using: "composite"
   steps:
   # Show informations :
+  - name: Setup .NET
+    uses: actions/setup-dotnet@v3
+    with:
+      dotnet-version: ${{ inputs.dotnetVersions }}
   - name: Restore dependencies
     shell: pwsh
     run: dotnet restore
