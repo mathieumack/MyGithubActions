@@ -64,6 +64,7 @@ jobs:
     - name: Restore dependencies
       shell: pwsh
       run: dotnet restore
+      working-directory: ${{ inputs.sourceDirectoryPath }}
     - name: Show github context github head_ref
       run: echo ${{ github.head_ref }}
     - name: Generate build version
