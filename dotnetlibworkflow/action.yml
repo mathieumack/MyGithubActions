@@ -75,6 +75,6 @@ runs:
   # Publish a new version only for new features :
   - name: Push Package to NuGet.org
     shell: pwsh
-    if: startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || inputs.publishToNuget
+    if: startswith(github.ref,'refs/heads/main') || startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || inputs.publishToNuget
     run: dotnet nuget push **.nupkg -k ${{ inputs.nugetApiKey }} -s https://api.nuget.org/v3/index.json
     working-directory: src
