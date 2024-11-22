@@ -30,12 +30,6 @@ on:
     secrets:
         NUGETPACKAGEIDENTIFIER:
             required: true
-        SONAR_ORGANIZATION_CODE:
-            required: false
-        SONAR_PROJECT_CODE:
-            required: false
-        SONAR_TOKEN:
-            required: false
         NUGETAPIKEY:
             required: true
 
@@ -80,12 +74,6 @@ jobs:
       run: |
         dotnet tool install --global dotnet-sonarscanner
         dotnet tool install --global dotnet-project-licenses
-    # Execute only if input SONAR_PROJECT_CODE is filled :
-    - name: Sonar tools
-      if: ${{ secrets.SONAR_PROJECT_CODE != '' }}
-      run: |
-        dotnet sonarscanner begin /k:${{ secrets.SONAR_ORGANIZATION_CODE }}_${{ secrets.SONAR_PROJECT_CODE }} /o:${{ secrets.SONAR_ORGANIZATION_CODE }} /d:sonar.login=${{ secrets.SONAR_TOKEN }} /d:sonar.host.url=https://sonarcloud.io /d:sonar.cs.opencover.reportsPaths="sonarqubecoverage.opencover.xml"
-      working-directory: ${{ inputs.sourceDirectoryPath }}
     - name: Build and test dotnet projects
       id: buildandanalyze
       uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@main
@@ -97,13 +85,6 @@ jobs:
     - name: End tools
       run: |
         dotnet-project-licenses -i .
-    - name: End Sonar
-      if: ${{ secrets.SONAR_PROJECT_CODE != '' }}
-      run: |
-        dotnet sonarscanner end /d:sonar.login=${{ secrets.SONAR_TOKEN }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      working-directory: ${{ inputs.sourceDirectoryPath }}
     - uses: actions/upload-artifact@v3
       with:
         name: nuget-artifact
