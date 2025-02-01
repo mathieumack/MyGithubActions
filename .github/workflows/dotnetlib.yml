@@ -85,7 +85,7 @@ jobs:
     #- name: End tools
     #  run: |
     #    dotnet-project-licenses -i .
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: nuget-artifact
         path: src/**/*.nupkg
