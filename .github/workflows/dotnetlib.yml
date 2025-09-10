@@ -30,6 +30,10 @@ on:
           required: true
           default: false
           type: boolean
+        windowsSdkVersion:
+          description: 'Windows SDK version to install'
+          default: '22100'
+          type: string
     secrets:
         NUGETPACKAGEIDENTIFIER:
             required: true
@@ -65,7 +69,7 @@ jobs:
       if: ${{ inputs.addSupportForWindowsSdk }}
       uses: GuillaumeFalourd/setup-windows10-sdk-action@v2.4
       with:
-        sdk-version: 22000
+        sdk-version: ${{ inputs.windowsSdkVersion }}
     - name: Restore dependencies
       shell: pwsh
       run: dotnet restore
