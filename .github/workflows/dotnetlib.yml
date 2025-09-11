@@ -23,9 +23,16 @@ on:
         dotnet-version:
           description: 'Dotnet versions.'
           default: |
-            7.0.x
-            8.0.x
             9.0.x
+          type: string
+        addSupportForWindowsSdk:
+          description: 'Add support for Windows SDK'
+          required: true
+          default: false
+          type: boolean
+        windowsSdkVersion:
+          description: 'Windows SDK version to install'
+          default: '22100'
           type: string
     secrets:
         NUGETPACKAGEIDENTIFIER:
@@ -58,6 +65,11 @@ jobs:
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
+    - name: Add support for Windows SDK
+      if: ${{ inputs.addSupportForWindowsSdk }}
+      uses: GuillaumeFalourd/setup-windows10-sdk-action@v2.4
+      with:
+        sdk-version: ${{ inputs.windowsSdkVersion }}
     - name: Restore dependencies
       shell: pwsh
       run: dotnet restore
