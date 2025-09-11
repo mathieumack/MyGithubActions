@@ -27,7 +27,6 @@ on:
           type: string
         addSupportForWindowsSdk:
           description: 'Add support for Windows SDK'
-          required: true
           default: false
           type: boolean
         windowsSdkVersion:
