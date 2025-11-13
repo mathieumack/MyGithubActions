@@ -49,11 +49,11 @@ jobs:
       uses: actions/checkout@v4
     # Show informations :
     - name: Show github context github ref
-      run: echo ${{ github.ref }}
+      run: 'echo "GitHub ref: ${{ github.ref }}"'
     - name: Show github context github head_ref
-      run: echo ${{ github.head_ref }}
+      run: 'echo "GitHub head_ref: ${{ github.head_ref }}"'
     - name: Should publish to nuget
-      run: echo ${{ inputs.publishToNuget }}
+      run: 'echo "Publish to NuGet: ${{ inputs.publishToNuget }}"'
     # Install java last version for Sonar
     - name: Set up JDK 17
       uses: actions/setup-java@v3
@@ -74,7 +74,7 @@ jobs:
       run: dotnet restore
       working-directory: ${{ inputs.sourceDirectoryPath }}
     - name: Show github context github head_ref
-      run: echo ${{ github.head_ref }}
+      run: 'echo "GitHub head_ref: ${{ github.head_ref }}"'
     - name: Generate build version
       id: generate-version
       uses: mathieumack/MyGithubActions/actions/nugetversion@main
