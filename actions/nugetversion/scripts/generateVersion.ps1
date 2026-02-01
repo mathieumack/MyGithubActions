@@ -1,31 +1,62 @@
 param(
     [String] $query,
     [String] $skip = 0,
-    [String] $take = 1
+    [String] $take = 1,
+    [ValidateSet('major', 'minor', 'patch')]
+    [String] $increment = 'minor'
 )
+
 $response = Invoke-RestMethod -Uri "https://api-v2v3search-0.nuget.org/query?q=$query&skip=$skip&take=$take"
-#write-host $response.data[0].versions
 $lastVersion = "1.0.0"
+
 if ($response.data.Count -eq 1)
 {
-    # Package already founded :
+    # Package already exists
     $lastVersion = $response.data[0].versions[$response.data[0].versions.Count - 1].version
-    write-host "Last version :" $lastVersion
+    
+    # Remove any pre-release suffix (e.g., -preview-001)
+    if ($lastVersion -match '^(\d+\.\d+\.\d+)') {
+        $lastVersion = $matches[1]
+    }
+    
+    write-host "Last published version: $lastVersion"
 
-    # We have to increment from last published version :
-    $versionSplited = $lastVersion.Split(".")
-    write-host "    Major   :" $versionSplited[0]
-    write-host "    Minor   :" $versionSplited[1]
-    write-host "    Revision:" $versionSplited[2]
+    # Parse version components
+    $versionParts = $lastVersion.Split(".")
+    [int]$major = $versionParts[0]
+    [int]$minor = $versionParts[1]
+    [int]$patch = $versionParts[2]
 
-    # Calculate new version :
-    $lastVersion = $versionSplited[0] + "." + ([int]$versionSplited[1] + 1) + ".0"
+    write-host "    Major   : $major"
+    write-host "    Minor   : $minor"
+    write-host "    Patch   : $patch"
+
+    # Increment version based on parameter
+    switch ($increment) {
+        'major' {
+            $major++
+            $minor = 0
+            $patch = 0
+        }
+        'minor' {
+            $minor++
+            $patch = 0
+        }
+        'patch' {
+            $patch++
+        }
+    }
+
+    $lastVersion = "$major.$minor.$patch"
+}
+else {
+    write-host "Package not found, using initial version: $lastVersion"
 }
 
-$versionSplited = $lastVersion.Split(".")
-write-host "New version :"
-write-host "    Major   :" $versionSplited[0]
-write-host "    Minor   :" $versionSplited[1]
-write-host "    Revision:" $versionSplited[2]
+$versionParts = $lastVersion.Split(".")
+write-host "New version ($increment increment):"
+write-host "    Major   : $($versionParts[0])"
+write-host "    Minor   : $($versionParts[1])"
+write-host "    Patch   : $($versionParts[2])"
 
 write-output $lastVersion

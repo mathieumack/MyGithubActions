@@ -1,0 +1,138 @@
+name: Test GitHub Actions
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-nugetversion:
+    name: Test NuGet Version Action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Test version generation - minor increment
+        id: test-minor
+        uses: ./actions/nugetversion
+        with:
+          nugetPackageIdentifier: 'Newtonsoft.Json'
+          versionIncrement: 'minor'
+      
+      - name: Display generated version
+        run: |
+          echo "Generated version: ${{ steps.test-minor.outputs.buildversion }}"
+          echo "Version prefix: ${{ steps.test-minor.outputs.buildversionprefix }}"
+      
+      - name: Test version generation - patch increment
+        id: test-patch
+        uses: ./actions/nugetversion
+        with:
+          nugetPackageIdentifier: 'Newtonsoft.Json'
+          versionIncrement: 'patch'
+      
+      - name: Display patch version
+        run: |
+          echo "Generated patch version: ${{ steps.test-patch.outputs.buildversion }}"
+
+  test-buildandtest:
+    name: Test Build and Test Action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Create sample .NET project
+        run: |
+          mkdir -p test-project/src
+          cd test-project/src
+          dotnet new classlib -n TestLibrary
+          dotnet new sln -n TestSolution
+          dotnet sln add TestLibrary/TestLibrary.csproj
+      
+      - name: Test build action
+        uses: ./actions/buildandtestdotnet
+        with:
+          version: '1.0.0'
+          prefix: '-test'
+          workingDirectory: 'test-project/src'
+          dotnet-version: |
+            9.0.x
+      
+      - name: Verify build output
+        run: |
+          if [ -f test-project/src/TestLibrary/bin/Release/net*.0/TestLibrary.dll ]; then
+            echo "✅ Build successful"
+          else
+            echo "❌ Build failed"
+            exit 1
+          fi
+
+  test-version-script:
+    name: Test Version Generation Script
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Test version script with existing package
+        shell: pwsh
+        run: |
+          $version = ./actions/nugetversion/scripts/generateVersion.ps1 -query "Newtonsoft.Json" -increment "minor"
+          Write-Host "Generated version: $version"
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            Write-Error "Invalid version format: $version"
+            exit 1
+          }
+      
+      - name: Test version script with non-existent package
+        shell: pwsh
+        run: |
+          $version = ./actions/nugetversion/scripts/generateVersion.ps1 -query "NonExistentPackage12345" -increment "minor"
+          Write-Host "Generated version for new package: $version"
+          if ($version -ne "1.0.0") {
+            Write-Error "Expected 1.0.0 for new package, got: $version"
+            exit 1
+          }
+      
+      - name: Test major version increment
+        shell: pwsh
+        run: |
+          $version = ./actions/nugetversion/scripts/generateVersion.ps1 -query "Newtonsoft.Json" -increment "major"
+          Write-Host "Major version: $version"
+
+  validation:
+    name: Validate Action Definitions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Validate action.yml files
+        run: |
+          echo "Validating action.yml files..."
+          
+          for action_file in actions/*/action.yml dotnetlibworkflow/action.yml; do
+            if [ -f "$action_file" ]; then
+              echo "✅ Found: $action_file"
+              
+              # Basic YAML validation using Python
+              python3 -c "import yaml; yaml.safe_load(open('$action_file'))" && echo "  Valid YAML" || exit 1
+            else
+              echo "❌ Missing: $action_file"
+              exit 1
+            fi
+          done
+      
+      - name: Check for deprecated syntax
+        run: |
+          echo "Checking for deprecated ::set-output..."
+          if grep -r "::set-output" actions/ dotnetlibworkflow/; then
+            echo "❌ Found deprecated ::set-output syntax"
+            exit 1
+          else
+            echo "✅ No deprecated syntax found"
+          fi

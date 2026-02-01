@@ -2,47 +2,34 @@ name: 'Nuget package'
 description: 'Build and Deploy a .net library on nuget'
 inputs:
   nugetPackageIdentifier:  # id of input
-    description: 'Who to greet'
+    description: 'NuGet package identifier to check and publish'
     required: true
-    default: 'World'
   nugetApiKey:  # id of input
-    description: 'Who to greet'
+    description: 'NuGet.org API key for package publication'
     required: true
     secrets: true
-    default: 'World'
-  sonarOrganizationCode:  # id of input
-    description: 'Who to greet'
-    required: true
-    secrets: true
-    default: 'World'
-  sonarProjectCode:  # id of input
-    description: 'Who to greet'
-    required: true
-    secrets: true
-    default: 'World'
-  sonarToken:  # id of input
-    description: 'Who to greet'
-    required: true
-    secrets: true
-    default: 'World'
   publishToNuget:  # id of input
-    description: 'Who to greet'
-    required: true
-    default: 'World'
-  githubToken:  # id of input
-    description: 'Who to greet'
-    required: true
-    default: 'World'
+    description: 'Force publish to NuGet.org (true/false)'
+    required: false
+    default: 'false'
+  workingDirectory:
+    description: 'Working directory that contains the source folder'
+    required: false
+    default: 'src'
+  versionIncrement:
+    description: 'Version increment type: major, minor, or patch'
+    required: false
+    default: 'minor'
 outputs:
   BUILD_VERSION:
-    description: 'The time we greeted you'
+    description: 'Generated package version'
   BUILD_VERSION_PREFIX:
-    description: 'The time we greeted you'
+    description: 'Generated version prefix (e.g., -preview-001)'
 runs:
   using: "composite"
   steps:
   # Show informations :
-  - uses: actions/checkout@v2
+  - uses: actions/checkout@v4
   - name: Show github context github ref
     shell: bash
     run: echo Github Ref ${{ github.ref }}
@@ -57,24 +44,21 @@ runs:
     uses: ./nugetversion
     with:
       nugetPackageIdentifier: '${{ inputs.nugetPackageIdentifier }}'
+      versionIncrement: '${{ inputs.versionIncrement }}'
   # Build solution (and package nuget) 
   - id: buildAndTest
     uses: ./buildandtestdotnet
     with:
       version: '${{ steps.nugetVersion.outputs.buildVersion }}'
       prefix: '${{ steps.nugetVersion.outputs.buildVersionPrefix }}'
-  - name: SonarCloud Scan
-    uses: SonarSource/sonarcloud-github-action@master
-    env:
-      GITHUB_TOKEN: ${{ inputs.githubToken }}  
-      SONAR_TOKEN: ${{ inputs.sonarToken }}
-  - uses: actions/upload-artifact@v3
+      workingDirectory: '${{ inputs.workingDirectory }}'
+  - uses: actions/upload-artifact@v4
     with:
       name: nuget-artifact
-      path: src/**/*.nupkg
+      path: ${{ inputs.workingDirectory }}/**/*.nupkg
   # Publish a new version only for new features :
   - name: Push Package to NuGet.org
     shell: pwsh
     if: startswith(github.ref,'refs/heads/main') || startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || inputs.publishToNuget
     run: dotnet nuget push **.nupkg -k ${{ inputs.nugetApiKey }} -s https://api.nuget.org/v3/index.json
-    working-directory: src
+    working-directory: ${{ inputs.workingDirectory }}
