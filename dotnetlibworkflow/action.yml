@@ -42,22 +42,39 @@ runs:
   using: "composite"
   steps:
   # Show informations :
-  - uses: actions/checkout@v2
-  - name: Show github context github ref
+  - uses: actions/checkout@v4
+  - name: Show context information
     shell: bash
-    run: echo Github Ref ${{ github.ref }}
-  - name: Show github context github head ref
-    shell: bash
-    run: echo Github Head Ref ${{ github.head_ref }}
-  - name: Show github context github run number
-    shell: bash
-    run: echo Github Run number ${{ github.run_number }}
+    run: |
+      echo "Github Ref: ${{ github.ref }}"
+      echo "Github Head Ref: ${{ github.head_ref }}"
+      echo "Github Run number: ${{ github.run_number }}"
+      echo "PR Number: ${{ github.event.pull_request.number }}"
   # Generate package version :
   - id: nugetVersion
     uses: ./nugetversion
     with:
       nugetPackageIdentifier: '${{ inputs.nugetPackageIdentifier }}'
-  # Build solution (and package nuget) 
+
+  # Check if PR message requests build and package
+  - name: Check PR message for build request
+    id: check-pr-message
+    if: github.event.pull_request.number != ''
+    shell: pwsh
+    run: |
+      $prNumber = "${{ github.event.pull_request.number }}"
+      $repo = "${{ github.repository }}"
+      $token = "${{ inputs.githubToken }}"
+      $scriptPath = "./nugetversion/scripts/checkPRMessage.ps1"
+      if (Test-Path $scriptPath) {
+        $shouldPublish = & $scriptPath -prNumber $prNumber -repo $repo -token $token
+        echo "pr_requests_publish=$shouldPublish" >> $GITHUB_OUTPUT
+        echo "PR requests publish: $shouldPublish"
+      } else {
+        echo "pr_requests_publish=false" >> $GITHUB_OUTPUT
+      }
+
+  # Build solution (and package nuget)
   - id: buildAndTest
     uses: ./buildandtestdotnet
     with:
@@ -66,7 +83,7 @@ runs:
   - name: SonarCloud Scan
     uses: SonarSource/sonarcloud-github-action@master
     env:
-      GITHUB_TOKEN: ${{ inputs.githubToken }}  
+      GITHUB_TOKEN: ${{ inputs.githubToken }}
       SONAR_TOKEN: ${{ inputs.sonarToken }}
   - uses: actions/upload-artifact@v3
     with:
@@ -75,6 +92,6 @@ runs:
   # Publish a new version only for new features :
   - name: Push Package to NuGet.org
     shell: pwsh
-    if: startswith(github.ref,'refs/heads/main') || startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || inputs.publishToNuget
+    if: startswith(github.ref,'refs/heads/main') || startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || startswith(github.head_ref,'copilot/') || inputs.publishToNuget || steps.check-pr-message.outputs.pr_requests_publish == 'true'
     run: dotnet nuget push **.nupkg -k ${{ inputs.nugetApiKey }} -s https://api.nuget.org/v3/index.json
     working-directory: src
