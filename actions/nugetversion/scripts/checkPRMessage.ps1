@@ -51,7 +51,9 @@ try {
     
     # Check the last comment
     if ($commentsResponse.Count -gt 0) {
-        $lastComment = $commentsResponse[$commentsResponse.Count - 1]
+        # Ensure the response is treated as an array
+        $comments = @($commentsResponse)
+        $lastComment = $comments[$comments.Count - 1]
         $commentBody = $lastComment.body
         Write-Host "Last comment by: $($lastComment.user.login)"
         Write-Host "Last comment: $commentBody"

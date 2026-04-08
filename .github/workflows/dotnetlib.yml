@@ -65,9 +65,9 @@ jobs:
         $prNumber = "${{ github.event.pull_request.number }}"
         $repo = "${{ github.repository }}"
         $token = "${{ github.token }}"
-        $scriptPath = "actions\nugetversion\scripts\checkPRMessage.ps1"
+        $scriptPath = "actions/nugetversion/scripts/checkPRMessage.ps1"
         if (Test-Path $scriptPath) {
-          $shouldPublish = & ".\$scriptPath" -prNumber $prNumber -repo $repo -token $token
+          $shouldPublish = & $scriptPath -prNumber $prNumber -repo $repo -token $token
           echo "pr_requests_publish=$shouldPublish" >> $GITHUB_OUTPUT
           echo "PR requests publish: $shouldPublish"
         } else {
