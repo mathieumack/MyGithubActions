@@ -41,7 +41,7 @@ try {
     $prBody = $prResponse.body
     if (-not [string]::IsNullOrEmpty($prBody)) {
         foreach ($keyword in $keywords) {
-            if ($prBody -match $keyword) {
+            if ($prBody -imatch $keyword) {
                 Write-Host "Found keyword '$keyword' in PR body"
                 Write-Output "true"
                 exit 0
@@ -51,13 +51,13 @@ try {
     
     # Check the last comment
     if ($commentsResponse.Count -gt 0) {
-        $lastComment = $commentsResponse[-1]
+        $lastComment = $commentsResponse[$commentsResponse.Count - 1]
         $commentBody = $lastComment.body
         Write-Host "Last comment by: $($lastComment.user.login)"
         Write-Host "Last comment: $commentBody"
-        
+
         foreach ($keyword in $keywords) {
-            if ($commentBody -match $keyword) {
+            if ($commentBody -imatch $keyword) {
                 Write-Host "Found keyword '$keyword' in last comment"
                 Write-Output "true"
                 exit 0
