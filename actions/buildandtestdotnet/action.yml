@@ -20,21 +20,19 @@ inputs:
 runs:
   using: "composite"
   steps:
-  # Show informations :
   - name: Setup .NET
     uses: actions/setup-dotnet@v3
     with:
       dotnet-version: ${{ inputs.dotnet-version }}
+
   - name: Restore dependencies
     shell: pwsh
     run: dotnet restore
-    working-directory: src
+    working-directory: ${{ inputs.workingDirectory }}
+
   - name: Build and analyze
     shell: pwsh
     run: |
       Write-Host "Build version : ${{ inputs.version }}${{ inputs.prefix }}"
       dotnet build --configuration Release --no-restore -p:FileVersion=${{ inputs.version }} /p:Version=${{ inputs.version }}${{ inputs.prefix }}
     working-directory: ${{ inputs.workingDirectory }}
-  #- name: Launch unit tests
-  #  run: dotnet test --configuration Release --no-build --verbosity normal /p:CollectCoverage=true  /p:CoverletOutputFormat=opencover --collect:"Code Coverage" /p:CoverletOutput="../sonarqubecoverage"
-  #  working-directory: src

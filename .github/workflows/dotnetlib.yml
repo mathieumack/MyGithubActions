@@ -47,13 +47,34 @@ jobs:
     steps:
     - name: Checkout workflows repo # required so we can reference the actions locally
       uses: actions/checkout@v4
+
     # Show informations :
-    - name: Show github context github ref
-      run: 'echo "GitHub ref: ${{ github.ref }}"'
-    - name: Show github context github head_ref
-      run: 'echo "GitHub head_ref: ${{ github.head_ref }}"'
-    - name: Should publish to nuget
-      run: 'echo "Publish to NuGet: ${{ inputs.publishToNuget }}"'
+    - name: Show context information
+      run: |
+        echo "GitHub ref: ${{ github.ref }}"
+        echo "GitHub head_ref: ${{ github.head_ref }}"
+        echo "Publish to NuGet: ${{ inputs.publishToNuget }}"
+        echo "PR Number: ${{ github.event.pull_request.number }}"
+
+    # Check if PR message requests build and package
+    - name: Check PR message for build request
+      id: check-pr-message
+      if: github.event.pull_request.number != ''
+      shell: pwsh
+      run: |
+        $prNumber = "${{ github.event.pull_request.number }}"
+        $repo = "${{ github.repository }}"
+        $token = "${{ github.token }}"
+        $scriptPath = "actions/nugetversion/scripts/checkPRMessage.ps1"
+        if (Test-Path $scriptPath) {
+          $shouldPublish = & $scriptPath -prNumber $prNumber -repo $repo -token $token
+          echo "pr_requests_publish=$shouldPublish" >> $GITHUB_OUTPUT
+          echo "PR requests publish: $shouldPublish"
+        } else {
+          Write-Host "Script not found at $scriptPath, skipping PR message check"
+          echo "pr_requests_publish=false" >> $GITHUB_OUTPUT
+        }
+
     # Install java last version for Sonar
     - name: Set up JDK 17
       uses: actions/setup-java@v3
@@ -73,18 +94,13 @@ jobs:
       shell: pwsh
       run: dotnet restore
       working-directory: ${{ inputs.sourceDirectoryPath }}
-    - name: Show github context github head_ref
-      run: 'echo "GitHub head_ref: ${{ github.head_ref }}"'
+
     - name: Generate build version
       id: generate-version
       uses: mathieumack/MyGithubActions/actions/nugetversion@main
       with:
         nugetPackageIdentifier: '${{ secrets.NUGETPACKAGEIDENTIFIER }}'
-    # Build solution (and package nuget) 
-    #- name: Build tools
-    #  run: |
-    #    dotnet tool install --global dotnet-sonarscanner
-    #    dotnet tool install --global dotnet-project-licenses
+
     - name: Build and test dotnet projects
       id: buildandanalyze
       uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@main
@@ -93,15 +109,13 @@ jobs:
         version: '${{ steps.generate-version.outputs.buildversion }}'
         prefix: '${{ steps.generate-version.outputs.buildversionprefix }}'
         workingDirectory: '${{ inputs.sourceDirectoryPath }}'
-    #- name: End tools
-    #  run: |
-    #    dotnet-project-licenses -i .
+
     - uses: actions/upload-artifact@v4
       with:
         name: nuget-artifact
         path: src/**/*.nupkg
     # Publish a new version only for new features :
     - name: Push Package to NuGet.org
-      if: startswith(github.ref,'refs/heads/main') || startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || inputs.publishToNuget
+      if: startswith(github.ref,'refs/heads/main') || startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || startswith(github.head_ref,'copilot/') || inputs.publishToNuget || steps.check-pr-message.outputs.pr_requests_publish == 'true'
       run: dotnet nuget push **.nupkg -k ${{ secrets.NUGETAPIKEY }} -s https://api.nuget.org/v3/index.json
       working-directory: ${{ inputs.sourceDirectoryPath }}

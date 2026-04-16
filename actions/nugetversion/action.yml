@@ -20,8 +20,7 @@ runs:
     shell: pwsh
     run: |
       $version = .\scripts\generateVersion.ps1 -query ${{ inputs.nugetPackageIdentifier }}
-      echo "buildversion=$(echo $version)" >> $GITHUB_OUTPUT
-      echo "::set-output name=buildversion::$version"
+      echo "buildversion=$version" >> $GITHUB_OUTPUT
       echo "Build version : $version"
     working-directory: ${{ github.action_path }}
   - name: Generate package version prefix
@@ -31,14 +30,13 @@ runs:
       $versionPrefix = ""
       echo "Current ref branch : ${{ github.ref }}"
       if('${{ github.ref }}' -eq 'refs/heads/main')
-      { 
-        $versionPrefix = "" 
+      {
+        $versionPrefix = ""
       }
-      else { 
+      else {
         $gitrunNumber = ${{ github.run_number }}
         $formattedGitrunNumber = "{0:D3}" -f $gitrunNumber
-        $versionPrefix = "-preview-" + $formattedGitrunNumber 
+        $versionPrefix = "-preview-" + $formattedGitrunNumber
       }
-      echo "buildversionprefix=$(echo $versionPrefix)" >> $GITHUB_OUTPUT
-      echo "::set-output name=buildversionprefix::$versionPrefix"
+      echo "buildversionprefix=$versionPrefix" >> $GITHUB_OUTPUT
       echo "Build version prefix: $versionPrefix"
