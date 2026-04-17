@@ -5,13 +5,14 @@ inputs:
     description: 'Package identifier that should be used to check for version'
     required: true
     default: 'World'
+  feedUrl:
+    description: 'Custom NuGet feed URL (optional, defaults to public NuGet)'
+    required: false
+    default: 'https://api-v2v3search-0.nuget.org'
 outputs:
   buildversion:
-    description: 'Generated build version'
+    description: 'Generated build version (complete with preview suffix if applicable)'
     value: ${{ steps.generate-version.outputs.buildversion }}
-  buildversionprefix:
-    description: 'Generated build version prefix'
-    value: ${{ steps.generate-version-prefix.outputs.buildversionprefix }}
 runs:
   using: "composite"
   steps:

@@ -1,7 +1,9 @@
 param(
     [String] $query,
     [String] $skip = 0,
-    [String] $take = 1
+    [String] $take = 1,
+    [String] $feedUrl = "https://api-v2v3search-0.nuget.org",
+    [bool] $isMainBranch = $false
 )
 
 try {
