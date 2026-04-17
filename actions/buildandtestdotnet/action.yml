@@ -34,5 +34,5 @@ runs:
     shell: pwsh
     run: |
       Write-Host "Build version : ${{ inputs.version }}${{ inputs.prefix }}"
-      dotnet build --configuration Release --no-restore -p:FileVersion=${{ inputs.version }} /p:Version=${{ inputs.version }}${{ inputs.prefix }}
+      dotnet build --configuration Release --no-restore -p:FileVersion=${{ inputs.version }} /p:Version=${{ inputs.version }}${{ inputs.prefix }} /p:NuGetVersion=${{ inputs.version }}${{ inputs.prefix }}
     working-directory: ${{ inputs.workingDirectory }}
