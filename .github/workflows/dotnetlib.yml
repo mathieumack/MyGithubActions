@@ -97,13 +97,13 @@ jobs:
 
     - name: Generate build version
       id: generate-version
-      uses: mathieumack/MyGithubActions/actions/nugetversion@main
+      uses: mathieumack/MyGithubActions/actions/nugetversion@copilot/fix-build-ci-dotnet-failed
       with:
         nugetPackageIdentifier: '${{ secrets.NUGETPACKAGEIDENTIFIER }}'
 
     - name: Build and test dotnet projects
       id: buildandanalyze
-      uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@main
+      uses: mathieumack/MyGithubActions/actions/buildandtestdotnet@copilot/fix-build-ci-dotnet-failed
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
         version: '${{ steps.generate-version.outputs.buildversion }}'
