@@ -1,12 +1,14 @@
 param(
     [String] $query,
     [String] $skip = 0,
-    [String] $take = 1
+    [String] $take = 1,
+    [String] $feedUrl = "https://api-v2v3search-0.nuget.org",
+    [bool] $isMainBranch = $false
 )
 
 try {
     # Construct the appropriate API URL based on feed type
-    $searchUrl = "https://api-v2v3search-0.nuget.org/query?q=$query&skip=$skip&take=$take"
+    $searchUrl = "$feedUrl/query?q=$query&skip=$skip&take=$take&prerelease=true"
     
     write-host "Searching for package on: $searchUrl"
     
@@ -30,12 +32,12 @@ try {
                 $prereleaseNumber = $matches[3]
                 
                 write-host "Latest version is a prerelease: base=$baseVersion, type=$prereleaseType, number=$prereleaseNumber"
-                $lastVersion = $baseVersion
                 
+                # For main branch, use this base version as-is
                 # For PR builds, we'll keep the same base version and increment preview number
-                # For main branch, we'll use this base version as-is
+                $lastVersion = $baseVersion
             } else {
-                # Latest is stable - increment minor version for next preview
+                # Latest is stable - increment minor version for next preview/release
                 if ($latestVersion -match "^(\d+)\.(\d+)\.(\d+)$") {
                     $major = [int]$matches[1]
                     $minor = [int]$matches[2] + 1
@@ -72,5 +74,67 @@ write-host "New version:"
 write-host "    Major   : $($versionSplited[0])"
 write-host "    Minor   : $($versionSplited[1])"
 write-host "    Revision: $($versionSplited[2])"
+
+# Handle preview versioning for non-main branches
+if (-not $isMainBranch) {
+    write-host "This is a preview build, calculating preview version..."
+    $previewNumber = 1
+    
+    try {
+        # Use the already retrieved versions from the initial query
+        if ($response.data.Count -eq 1) {
+            # Get all versions and find previews for our base version
+            $allVersions = $response.data[0].versions
+            Write-Host "Found $($allVersions.Count) total versions, searching for previews of $lastVersion"
+            
+            # Find all preview versions that match our target base version
+            $matchingPreviews = @()
+            foreach ($version in $allVersions) {
+                if ($version.version -like "$lastVersion-preview-*") {
+                    Write-Host "Found preview version: $($version.version)"
+                    $matchingPreviews += $version
+                }
+            }
+            
+            if ($matchingPreviews.Count -gt 0) {
+                # Extract preview numbers and find the highest one
+                $previewNumbers = @()
+                foreach ($preview in $matchingPreviews) {
+                    if ($preview.version -match "^$lastVersion-preview-(\d+)$") {
+                        $previewNumber = [int]$matches[1]
+                        $previewNumbers += $previewNumber
+                        Write-Host "Extracted preview number $previewNumber from $($preview.version)"
+                    }
+                }
+                
+                if ($previewNumbers.Count -gt 0) {
+                    $maxPreviewNumber = ($previewNumbers | Measure-Object -Maximum).Maximum
+                    $previewNumber = $maxPreviewNumber + 1
+                    
+                    Write-Host "Found $($matchingPreviews.Count) existing preview(s) for base version $lastVersion"
+                    Write-Host "Highest preview number: $maxPreviewNumber"
+                    Write-Host "Next preview number: $previewNumber"
+                } else {
+                    Write-Host "Could not parse preview numbers, starting at 1"
+                    $previewNumber = 1
+                }
+            } else {
+                Write-Host "No existing previews found for base version $lastVersion, starting at 1"
+                $previewNumber = 1
+            }
+        }
+    }
+    catch {
+        Write-Host "Warning: Could not analyze preview versions: $_"
+        Write-Host "Defaulting to preview number 1"
+        $previewNumber = 1
+    }
+    
+    # Format preview number and append to version
+    $formattedPreviewNumber = $previewNumber.ToString("000")
+    $lastVersion = "$lastVersion-preview-$formattedPreviewNumber"
+    
+    Write-Host "Final preview version: $lastVersion"
+}
 
 write-output $lastVersion

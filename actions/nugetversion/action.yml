@@ -11,11 +11,8 @@ inputs:
     default: 'https://api-v2v3search-0.nuget.org'
 outputs:
   buildversion:
-    description: 'Generated build version'
+    description: 'Generated build version (complete with preview suffix if applicable)'
     value: ${{ steps.generate-version.outputs.buildversion }}
-  buildversionprefix:
-    description: 'Generated build version prefix'
-    value: ${{ steps.generate-version-prefix.outputs.buildversionprefix }}
 runs:
   using: "composite"
   steps:
@@ -23,71 +20,13 @@ runs:
     id: generate-version
     shell: pwsh
     run: |
-      $version = .\scripts\generateVersion.ps1 -query "${{ inputs.nugetPackageIdentifier }}" -feedUrl "${{ inputs.feedUrl }}"
+      # Determine if this is the main branch
+      $isMainBranch = '${{ github.ref }}' -eq 'refs/heads/main'
+      Write-Host "Current ref branch: ${{ github.ref }}"
+      Write-Host "Is main branch: $isMainBranch"
+      
+      # Generate complete version (including preview suffix for non-main branches)
+      $version = .\scripts\generateVersion.ps1 -query "${{ inputs.nugetPackageIdentifier }}" -feedUrl "${{ inputs.feedUrl }}" -isMainBranch $isMainBranch
       "buildversion=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-      Write-Host "Build version : $version"
+      Write-Host "Final build version: $version"
     working-directory: ${{ github.action_path }}
-  - name: Generate package version prefix
-    id: generate-version-prefix
-    shell: pwsh
-    run: |
-      $versionPrefix = ""
-      echo "Current ref branch : ${{ github.ref }}"
-      if('${{ github.ref }}' -eq 'refs/heads/main')
-      {
-        $versionPrefix = ""
-      }
-      else {
-        $baseVersion = "${{ steps.generate-version.outputs.buildversion }}"
-        $query = "${{ inputs.nugetPackageIdentifier }}"
-        
-        $previewNumber = 1
-        
-        try {
-          # Construct the appropriate API URL based on feed type (same logic as generateVersion.ps1)
-          $feedUrl = "${{ inputs.feedUrl }}"
-          $searchUrl = ""
-          if ($feedUrl -like "*azure-api.net*" -or $feedUrl -like "*pkgs.visualstudio.com*") {
-            # Azure DevOps feed - use v3 search API
-            $baseUrl = $feedUrl -replace "/packages.*$", ""
-            $searchUrl = "$baseUrl/v3/search?q=$query&take=1&skip=0"
-          } else {
-            # Standard NuGet v3 API
-            $searchUrl = "$feedUrl/query?q=$query&skip=0&take=1"
-          }
-          
-          Write-Host "Searching for preview versions on: $searchUrl"
-          $response = Invoke-RestMethod -Uri $searchUrl -ErrorAction Stop
-          
-          if ($response.data.Count -eq 1)
-          {
-            # Get the latest version to check if it's a preview for our base version
-            $allVersions = $response.data[0].versions
-            $latestVersion = $allVersions[-1].version
-            
-            Write-Host "Latest version on feed: $latestVersion"
-            Write-Host "Target base version: $baseVersion"
-            
-            # Check if latest version is a preview of our target base version
-            if ($latestVersion -match "^$([regex]::Escape($baseVersion))-preview-(\d+)$") {
-              # Same base version with preview - increment preview number
-              $currentPreviewNumber = [int]$matches[1]
-              $previewNumber = $currentPreviewNumber + 1
-              Write-Host "Found existing preview $currentPreviewNumber for base version $baseVersion, incrementing to $previewNumber"
-            } else {
-              # Different base version or no preview for this base - start at 1
-              $previewNumber = 1
-              Write-Host "No existing preview found for base version $baseVersion, starting at preview 1"
-            }
-          }
-        }
-        catch {
-          write-host "Warning: Could not query NuGet API: $_"
-          write-host "Defaulting to preview number 1"
-        }
-        
-        $formattedPreviewNumber = $previewNumber.ToString("000")
-        $versionPrefix = "-preview-" + $formattedPreviewNumber
-      }
-      "buildversionprefix=$versionPrefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-      Write-Host "Build version prefix: $versionPrefix"
