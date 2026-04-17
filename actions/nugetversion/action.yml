@@ -5,6 +5,10 @@ inputs:
     description: 'Package identifier that should be used to check for version'
     required: true
     default: 'World'
+  feedUrl:
+    description: 'Custom NuGet feed URL (optional, defaults to public NuGet)'
+    required: false
+    default: 'https://api-v2v3search-0.nuget.org'
 outputs:
   buildversion:
     description: 'Generated build version'
@@ -19,7 +23,7 @@ runs:
     id: generate-version
     shell: pwsh
     run: |
-      $version = .\scripts\generateVersion.ps1 -query "${{ inputs.nugetPackageIdentifier }}"
+      $version = .\scripts\generateVersion.ps1 -query "${{ inputs.nugetPackageIdentifier }}" -feedUrl "${{ inputs.feedUrl }}"
       "buildversion=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
       Write-Host "Build version : $version"
     working-directory: ${{ github.action_path }}
@@ -40,35 +44,41 @@ runs:
         $previewNumber = 1
         
         try {
-          # Query NuGet for all versions of the package
-          $response = Invoke-RestMethod -Uri "https://api-v2v3search-0.nuget.org/query?q=$query&skip=0&take=1" -ErrorAction Stop
+          # Construct the appropriate API URL based on feed type (same logic as generateVersion.ps1)
+          $feedUrl = "${{ inputs.feedUrl }}"
+          $searchUrl = ""
+          if ($feedUrl -like "*azure-api.net*" -or $feedUrl -like "*pkgs.visualstudio.com*") {
+            # Azure DevOps feed - use v3 search API
+            $baseUrl = $feedUrl -replace "/packages.*$", ""
+            $searchUrl = "$baseUrl/v3/search?q=$query&take=1&skip=0"
+          } else {
+            # Standard NuGet v3 API
+            $searchUrl = "$feedUrl/query?q=$query&skip=0&take=1"
+          }
+          
+          Write-Host "Searching for preview versions on: $searchUrl"
+          $response = Invoke-RestMethod -Uri $searchUrl -ErrorAction Stop
           
           if ($response.data.Count -eq 1)
           {
-            # Get all versions that match the base version with preview suffix
-            $previewVersions = $response.data[0].versions | Where-Object { 
-              $null -ne $_.version -and $_.version -like "$baseVersion-preview-*" 
-            }
+            # Get the latest version to check if it's a preview for our base version
+            $allVersions = $response.data[0].versions
+            $latestVersion = $allVersions[-1].version
             
-            if ($previewVersions.Count -gt 0)
-            {
-              # Extract preview numbers and find the max
-              $previewNumbers = $previewVersions | ForEach-Object {
-                if ($_.version -match "$baseVersion-preview-(\d+)")
-                {
-                  [int]$matches[1]
-                }
-              } | Where-Object { $_ -ne $null }
-              
-              if ($previewNumbers.Count -gt 0)
-              {
-                $maxPreviewNumber = ($previewNumbers | Measure-Object -Maximum).Maximum
-                $previewNumber = $maxPreviewNumber + 1
-              }
-            }
+            Write-Host "Latest version on feed: $latestVersion"
+            Write-Host "Target base version: $baseVersion"
             
-            write-host "Found $($previewVersions.Count) existing preview version(s) for $baseVersion"
-            write-host "Next preview number: $previewNumber"
+            # Check if latest version is a preview of our target base version
+            if ($latestVersion -match "^$([regex]::Escape($baseVersion))-preview-(\d+)$") {
+              # Same base version with preview - increment preview number
+              $currentPreviewNumber = [int]$matches[1]
+              $previewNumber = $currentPreviewNumber + 1
+              Write-Host "Found existing preview $currentPreviewNumber for base version $baseVersion, incrementing to $previewNumber"
+            } else {
+              # Different base version or no preview for this base - start at 1
+              $previewNumber = 1
+              Write-Host "No existing preview found for base version $baseVersion, starting at preview 1"
+            }
           }
         }
         catch {

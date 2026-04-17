@@ -5,7 +5,12 @@ param(
 )
 
 try {
-    $response = Invoke-RestMethod -Uri "https://api-v2v3search-0.nuget.org/query?q=$query&skip=$skip&take=$take" -ErrorAction Stop
+    # Construct the appropriate API URL based on feed type
+    $searchUrl = "https://api-v2v3search-0.nuget.org/query?q=$query&skip=$skip&take=$take"
+    
+    write-host "Searching for package on: $searchUrl"
+    
+    $response = Invoke-RestMethod -Uri $searchUrl -ErrorAction Stop
     $lastVersion = "1.0.0"
     
     if ($response.data.Count -eq 1)
@@ -13,31 +18,45 @@ try {
         # Package already found
         $versions = $response.data[0].versions
         if ($versions -and $versions.Count -gt 0) {
-            # Get the last stable version (without preview suffix)
-            $stableVersions = $versions | Where-Object { $_.version -notmatch "-preview-" -and $_.version -notmatch "-alpha" -and $_.version -notmatch "-beta" }
+            # Find the absolute latest version (including previews)
+            $latestVersion = $versions[-1].version
+            write-host "Latest version found: $latestVersion"
             
-            if ($stableVersions -and $stableVersions.Count -gt 0) {
-                $lastVersion = $stableVersions[-1].version
-                write-host "Last stable version found: $lastVersion"
+            # Check if latest version is a preview/prerelease
+            if ($latestVersion -match "^(\d+\.\d+\.\d+)(-preview-|-alpha-|-beta-)(.+)$") {
+                # Latest is a preview - extract the base version
+                $baseVersion = $matches[1]
+                $prereleaseType = $matches[2]
+                $prereleaseNumber = $matches[3]
+                
+                write-host "Latest version is a prerelease: base=$baseVersion, type=$prereleaseType, number=$prereleaseNumber"
+                $lastVersion = $baseVersion
+                
+                # For PR builds, we'll keep the same base version and increment preview number
+                # For main branch, we'll use this base version as-is
             } else {
-                # If no stable version, take the last version overall
-                $lastVersion = $versions[-1].version
-                write-host "No stable version found, using last version: $lastVersion"
-                # Remove suffixes to get base version
-                if ($lastVersion -match "^(\d+\.\d+\.\d+)") {
-                    $lastVersion = $matches[1]
-                    write-host "Extracted base version: $lastVersion"
+                # Latest is stable - increment minor version for next preview
+                if ($latestVersion -match "^(\d+)\.(\d+)\.(\d+)$") {
+                    $major = [int]$matches[1]
+                    $minor = [int]$matches[2] + 1
+                    $patch = 0
+                    $lastVersion = "$major.$minor.$patch"
+                    
+                    write-host "Latest version is stable: $latestVersion"
+                    write-host "Next version will be: $lastVersion"
+                } else {
+                    # Fallback for malformed versions
+                    $lastVersion = $latestVersion
+                    write-host "Using latest version as-is: $lastVersion"
                 }
             }
 
-            # We have to increment from last published version
+            # Display version information
             $versionSplited = $lastVersion.Split(".")
+            write-host "Target base version:"
             write-host "    Major   : $($versionSplited[0])"
             write-host "    Minor   : $($versionSplited[1])"
             write-host "    Revision: $($versionSplited[2])"
-
-            # Calculate new version
-            $lastVersion = $versionSplited[0] + "." + ([int]$versionSplited[1] + 1) + ".0"
         }
     } else {
         write-host "Package not found on NuGet, using default version: $lastVersion"
