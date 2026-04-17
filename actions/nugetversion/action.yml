@@ -47,7 +47,7 @@ runs:
           {
             # Get all versions that match the base version with preview suffix
             $previewVersions = $response.data[0].versions | Where-Object { 
-              $_.version -like "$baseVersion-preview-*" 
+              $null -ne $_.version -and $_.version -like "$baseVersion-preview-*" 
             }
             
             if ($previewVersions.Count -gt 0)
