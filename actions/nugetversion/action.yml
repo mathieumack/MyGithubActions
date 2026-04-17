@@ -19,7 +19,7 @@ runs:
     id: generate-version
     shell: pwsh
     run: |
-      $version = .\scripts\generateVersion.ps1 -query ${{ inputs.nugetPackageIdentifier }}
+      $version = .\scripts\generateVersion.ps1 -query "${{ inputs.nugetPackageIdentifier }}"
       echo "buildversion=$version" >> $GITHUB_OUTPUT
       echo "Build version : $version"
     working-directory: ${{ github.action_path }}
