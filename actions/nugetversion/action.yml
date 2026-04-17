@@ -34,9 +34,40 @@ runs:
         $versionPrefix = ""
       }
       else {
-        $gitrunNumber = ${{ github.run_number }}
-        $formattedGitrunNumber = "{0:D3}" -f $gitrunNumber
-        $versionPrefix = "-preview-" + $formattedGitrunNumber
+        $baseVersion = "${{ steps.generate-version.outputs.buildversion }}"
+        $query = "${{ inputs.nugetPackageIdentifier }}"
+        
+        # Query NuGet for all versions of the package
+        $response = Invoke-RestMethod -Uri "https://api-v2v3search-0.nuget.org/query?q=$query&skip=0&take=1"
+        
+        $previewNumber = 1
+        if ($response.data.Count -eq 1)
+        {
+          # Get all versions that match the base version with preview suffix
+          $previewVersions = $response.data[0].versions | Where-Object { 
+            $_.version -like "$baseVersion-preview-*" 
+          }
+          
+          if ($previewVersions.Count -gt 0)
+          {
+            # Extract preview numbers and find the max
+            $maxPreviewNumber = ($previewVersions | ForEach-Object {
+              if ($_.version -match "$baseVersion-preview-(\d+)")
+              {
+                [int]$matches[1]
+              }
+            } | Measure-Object -Maximum).Maximum
+            
+            $previewNumber = $maxPreviewNumber + 1
+          }
+          
+          write-host "Found $($previewVersions.Count) existing preview version(s) for $baseVersion"
+          write-host "Next preview number: $previewNumber"
+        }
+        
+        $formattedPreviewNumber = "{0:D3}" -f $previewNumber
+        $versionPrefix = "-preview-" + $formattedPreviewNumber
       }
       echo "buildversionprefix=$versionPrefix" >> $GITHUB_OUTPUT
       echo "Build version prefix: $versionPrefix"
+    working-directory: ${{ github.action_path }}
