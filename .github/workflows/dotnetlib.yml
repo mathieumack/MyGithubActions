@@ -4,10 +4,14 @@ on:
   workflow_call:
     inputs:
         publishToNuget:
-          description: 'Publish to nuget'
-          required: true
-          default: true
+          description: 'Request preview publication (requires approval)'
+          required: false
+          default: false
           type: boolean
+        nugetUser:
+          description: 'NuGet.org username configured for Trusted Publishing'
+          required: true
+          type: string
         sourceDirectoryPath:
           description: 'Path for all source code'
           default: 'src'
@@ -36,13 +40,16 @@ on:
     secrets:
         NUGETPACKAGEIDENTIFIER:
             required: true
-        NUGETAPIKEY:
-            required: true
 
 jobs:
   build:
-    name: "CI : Build, Test and publish"
+    name: "CI: Build, test and pack"
     runs-on: '${{ inputs.runOnImageName }}-${{ inputs.runOnImageVersion }}'
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      release_publish: ${{ steps.release-check.outputs.release_publish }}
 
     steps:
     - name: Checkout workflows repo # required so we can reference the actions locally
@@ -53,27 +60,8 @@ jobs:
       run: |
         echo "GitHub ref: ${{ github.ref }}"
         echo "GitHub head_ref: ${{ github.head_ref }}"
-        echo "Publish to NuGet: ${{ inputs.publishToNuget }}"
+        echo "Preview publication requested: ${{ inputs.publishToNuget }}"
         echo "PR Number: ${{ github.event.pull_request.number }}"
-
-    # Check if PR message requests build and package
-    - name: Check PR message for build request
-      id: check-pr-message
-      if: github.event.pull_request.number != ''
-      shell: pwsh
-      run: |
-        $prNumber = "${{ github.event.pull_request.number }}"
-        $repo = "${{ github.repository }}"
-        $token = "${{ github.token }}"
-        $scriptPath = "actions/nugetversion/scripts/checkPRMessage.ps1"
-        if (Test-Path $scriptPath) {
-          $shouldPublish = & $scriptPath -prNumber $prNumber -repo $repo -token $token
-          echo "pr_requests_publish=$shouldPublish" >> $GITHUB_OUTPUT
-          echo "PR requests publish: $shouldPublish"
-        } else {
-          Write-Host "Script not found at $scriptPath, skipping PR message check"
-          echo "pr_requests_publish=false" >> $GITHUB_OUTPUT
-        }
 
     # Install java last version for Sonar
     - name: Set up JDK 17
@@ -107,15 +95,129 @@ jobs:
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
         version: '${{ steps.generate-version.outputs.buildversion }}'
-        prefix: '${{ steps.generate-version.outputs.buildversionprefix }}'
         workingDirectory: '${{ inputs.sourceDirectoryPath }}'
 
     - uses: actions/upload-artifact@v4
       with:
         name: nuget-artifact
-        path: src/**/*.nupkg
-    # Publish a new version only for new features :
+        path: ${{ inputs.sourceDirectoryPath }}/**/*.nupkg
+
+    - name: Check whether main push came from a pull request
+      id: release-check
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: pwsh
+      env:
+        GH_API_URL: ${{ github.api_url }}
+        GH_REPOSITORY: ${{ github.repository }}
+        GH_SHA: ${{ github.sha }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $headers = @{
+          Authorization = "Bearer " + $env:GH_TOKEN
+          Accept = "application/vnd.github+json"
+          "X-GitHub-Api-Version" = "2022-11-28"
+        }
+        try {
+          $pulls = @(
+            Invoke-RestMethod `
+              -Uri "$env:GH_API_URL/repos/$env:GH_REPOSITORY/commits/$env:GH_SHA/pulls" `
+              -Headers $headers
+          )
+          $mergedPulls = @(
+            $pulls | Where-Object {
+              $_.merged_at -and $_.base.ref -eq "main"
+            }
+          )
+          $shouldPublish = ($mergedPulls.Count -gt 0).ToString().ToLowerInvariant()
+        } catch {
+          Write-Warning "Could not verify that the commit came from a pull request: $_"
+          $shouldPublish = "false"
+        }
+        "release_publish=$shouldPublish" >> $env:GITHUB_OUTPUT
+
+  publish-preview:
+    name: "CD: Publish preview"
+    needs: build
+    if: >-
+      inputs.publishToNuget &&
+      (
+        startsWith(github.ref, 'refs/heads/feature/') ||
+        startsWith(github.ref, 'refs/heads/copilot/') ||
+        startsWith(github.head_ref, 'feature/') ||
+        startsWith(github.head_ref, 'copilot/')
+      )
+    runs-on: '${{ inputs.runOnImageName }}-${{ inputs.runOnImageVersion }}'
+    environment: nuget-preview
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: nuget-artifact
+        path: packages
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+    - name: Log in to NuGet.org with Trusted Publishing
+      id: nuget-login
+      uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+      with:
+        user: ${{ inputs.nugetUser }}
     - name: Push Package to NuGet.org
-      if: startswith(github.ref,'refs/heads/main') || startswith(github.ref,'refs/heads/feature') || startswith(github.head_ref,'feature/') || startswith(github.head_ref,'copilot/') || inputs.publishToNuget || steps.check-pr-message.outputs.pr_requests_publish == 'true'
-      run: dotnet nuget push **.nupkg -k ${{ secrets.NUGETAPIKEY }} -s https://api.nuget.org/v3/index.json
-      working-directory: ${{ inputs.sourceDirectoryPath }}
+      shell: pwsh
+      env:
+        NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+      run: |
+        $packages = @(Get-ChildItem packages -Recurse -Filter *.nupkg)
+        if ($packages.Count -eq 0) {
+          throw "No NuGet packages were downloaded"
+        }
+        foreach ($package in $packages) {
+          dotnet nuget push $package.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+        }
+
+  publish-release:
+    name: "CD: Publish release"
+    needs: build
+    if: needs.build.outputs.release_publish == 'true'
+    runs-on: '${{ inputs.runOnImageName }}-${{ inputs.runOnImageVersion }}'
+    environment: nuget-release
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: nuget-artifact
+        path: packages
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+    - name: Log in to NuGet.org with Trusted Publishing
+      id: nuget-login
+      uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+      with:
+        user: ${{ inputs.nugetUser }}
+    - name: Push Package to NuGet.org
+      shell: pwsh
+      env:
+        NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+      run: |
+        $packages = @(Get-ChildItem packages -Recurse -Filter *.nupkg)
+        if ($packages.Count -eq 0) {
+          throw "No NuGet packages were downloaded"
+        }
+        foreach ($package in $packages) {
+          dotnet nuget push $package.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+        }
